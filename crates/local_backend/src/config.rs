@@ -127,6 +127,11 @@ pub struct LocalConfig {
     /// of log integrations (eg axiom/datadog).
     #[clap(long)]
     pub local_log_sink: Option<String>,
+
+    /// Enable SQLite WAL (Write-Ahead Logging) mode for better concurrent
+    /// read performance and durability. Only applies when using SQLite.
+    #[clap(long, default_value = "false")]
+    pub wal_mode: bool,
 }
 
 impl fmt::Debug for LocalConfig {

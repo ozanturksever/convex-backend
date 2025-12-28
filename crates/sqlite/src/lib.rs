@@ -83,8 +83,22 @@ struct Inner {
 
 impl SqlitePersistence {
     pub fn new(path: &str) -> anyhow::Result<Self> {
+        Self::new_with_options(path, false)
+    }
+
+    pub fn new_with_options(path: &str, wal_mode: bool) -> anyhow::Result<Self> {
         let newly_created = !Path::new(path).exists();
         let connection = Connection::open(path)?;
+
+        // Enable WAL mode if requested
+        if wal_mode {
+            connection.execute_batch("PRAGMA journal_mode=WAL;")?;
+            // Set synchronous to NORMAL for better performance with WAL
+            // (FULL is default but NORMAL is safe with WAL)
+            connection.execute_batch("PRAGMA synchronous=NORMAL;")?;
+            tracing::info!("SQLite WAL mode enabled for {}", path);
+        }
+
         // Execute create tables unconditionally since they are idempotent.
         connection.execute_batch(DOCUMENTS_INIT)?;
         connection.execute_batch(INDEXES_INIT)?;

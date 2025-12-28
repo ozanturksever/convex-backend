@@ -114,6 +114,7 @@ async fn run_server_inner(runtime: ProdRuntime, config: LocalConfig) -> anyhow::
             require_ssl: !config.do_not_require_ssl,
             allow_read_only: false,
             skip_index_creation: false,
+            wal_mode: config.wal_mode,
         },
         &config.name(),
         runtime.clone(),

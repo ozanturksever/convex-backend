@@ -37,11 +37,13 @@ pub struct ConnectPersistenceFlags {
     pub require_ssl: bool,
     pub allow_read_only: bool,
     pub skip_index_creation: bool,
+    pub wal_mode: bool,
 }
 
 pub enum PersistenceSeed<RT: Runtime> {
     Sqlite {
         db_spec: String,
+        wal_mode: bool,
     },
     Postgres {
         config: tokio_postgres::Config,
@@ -66,6 +68,7 @@ pub fn persistence_seed<RT: Runtime>(
     match db {
         DbDriverTag::Sqlite => Ok(PersistenceSeed::Sqlite {
             db_spec: db_spec.to_owned(),
+            wal_mode: flags.wal_mode,
         }),
         DbDriverTag::Postgres(version)
         | DbDriverTag::PostgresMultiSchema(version)
@@ -151,9 +154,9 @@ pub async fn connect_persistence<RT: Runtime>(
     shutdown_signal: ShutdownSignal,
 ) -> anyhow::Result<Arc<dyn Persistence>> {
     match persistence_seed(db, db_spec, flags, instance_name, runtime)? {
-        PersistenceSeed::Sqlite { db_spec } => {
-            let persistence = Arc::new(SqlitePersistence::new(&db_spec)?);
-            tracing::info!("Connected to SQLite at {db_spec}");
+        PersistenceSeed::Sqlite { db_spec, wal_mode } => {
+            let persistence = Arc::new(SqlitePersistence::new_with_options(&db_spec, wal_mode)?);
+            tracing::info!("Connected to SQLite at {db_spec} (WAL mode: {wal_mode})");
             Ok(persistence as Arc<dyn Persistence>)
         },
         PersistenceSeed::Postgres {
@@ -202,12 +205,13 @@ pub async fn connect_persistence_reader<RT: Runtime>(
             require_ssl,
             allow_read_only: true,
             skip_index_creation: false,
+            wal_mode: false,
         },
         instance_name,
         runtime,
     )? {
-        PersistenceSeed::Sqlite { db_spec } => {
-            Ok(Arc::new(SqlitePersistence::new(&db_spec)?) as Arc<dyn PersistenceReader>)
+        PersistenceSeed::Sqlite { db_spec, wal_mode } => {
+            Ok(Arc::new(SqlitePersistence::new_with_options(&db_spec, wal_mode)?) as Arc<dyn PersistenceReader>)
         },
         PersistenceSeed::Postgres { config, options } => {
             let options = PostgresReaderOptions {
